@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地区封锁 - 防火墙面板</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">防火墙面板</a>
+            <div class="navbar-nav ms-auto">
+                <a class="btn btn-outline-light btn-sm me-1" href="/blacklist"><i class="bi bi-shield-lock"></i> 黑白名单</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/connections"><i class="bi bi-activity"></i> 连接</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/traffic"><i class="bi bi-graph-up"></i> 流量</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/geoip"><i class="bi bi-globe2"></i> 地区封锁</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/conflicts"><i class="bi bi-exclamation-triangle"></i> 冲突检测</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/expiry"><i class="bi bi-clock"></i> 规则过期</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/health"><i class="bi bi-heart-pulse"></i> 健康检查</a>
+                <a class="btn btn-outline-light btn-sm me-2" href="/logs"><i class="bi bi-journal-text"></i> 日志</a>
+                <a class="btn btn-outline-light btn-sm" href="/logout">退出</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- IP 归属地查询 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-search"></i> IP 归属地查询
+            </div>
+            <div class="card-body">
+                <div class="input-group mb-2" style="max-width:400px;">
+                    <input type="text" id="lookupIp" class="form-control" placeholder="输入 IP 地址" pattern="^(\d{1,3}\.){3}\d{1,3}$">
+                    <button class="btn btn-outline-primary" onclick="lookupIP()">
+                        <i class="bi bi-globe2"></i> 查询
+                    </button>
+                </div>
+                <div id="lookupResult"></div>
+            </div>
+        </div>
+
+        <!-- 封锁列表 -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-globe2"></i> 已封锁国家/地区</span>
+                <span class="badge bg-danger">{{ blocked_countries|length }}</span>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="/geoip/block" class="mb-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="input-group" style="max-width:400px;">
+                        <select name="code" class="form-select">
+                            <option value="">选择国家/地区</option>
+                            {% for code, name in country_codes.items() %}
+                            <option value="{{ code }}">{{ name }} ({{ code }})</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-plus"></i> 封锁
+                        </button>
+                    </div>
+                </form>
+
+                {% if blocked_countries %}
+                <div class="list-group">
+                    {% for code in blocked_countries %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-x-circle text-danger"></i>
+                            <strong>{{ code }}</strong>
+                            {% if code in country_codes %}
+                                - {{ country_codes[code] }}
+                            {% endif %}
+                        </span>
+                        <form method="POST" action="/geoip/unblock" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="code" value="{{ code }}">
+                            <button type="submit" class="btn btn-sm btn-outline-success"
+                                    onclick="return confirm('确定解除 {{ code }} 的封锁？');">
+                                <i class="bi bi-unlock"></i> 解除封锁
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">暂无封锁的国家/地区</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>说明：</strong>地区封锁功能需要系统安装 GeoIP 数据库。
+            请确保 <code>/usr/share/GeoIP/GeoLite2-Country.mmdb</code> 文件存在，
+            或安装 <code>geoiplookup</code> 命令行工具。
+        </div>
+
+        <a href="/" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 返回规则管理</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function lookupIP() {
+            const ip = document.getElementById('lookupIp').value.trim();
+            if (!ip) return;
+            const csrf = document.querySelector('meta[name="csrf-token"]');
+            fetch('/api/geoip/lookup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}',
+                    'X-CSRF-Token': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ip: ip})
+            })
+            .then(r => r.json())
+            .then(data => {
+                const div = document.getElementById('lookupResult');
+                if (data.error) {
+                    div.innerHTML = `<span class="text-danger">${data.error}</span>`;
+                } else {
+                    div.innerHTML = `<span class="badge bg-primary">${data.ip}</span> → <strong>${data.country}</strong> (${data.country_code || '未知'})`;
+                }
+            })
+            .catch(err => {
+                document.getElementById('lookupResult').innerHTML = `<span class="text-danger">查询失败</span>`;
+            });
+        }
+    </script>
+</body>
+</html>

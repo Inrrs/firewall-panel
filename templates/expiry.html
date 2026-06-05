@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>规则有效期 - 防火墙面板</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">防火墙面板</a>
+            <div class="navbar-nav ms-auto">
+                <a class="btn btn-outline-light btn-sm me-1" href="/blacklist"><i class="bi bi-shield-lock"></i> 黑白名单</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/connections"><i class="bi bi-activity"></i> 连接</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/traffic"><i class="bi bi-graph-up"></i> 流量</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/geoip"><i class="bi bi-globe2"></i> 地区封锁</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/conflicts"><i class="bi bi-exclamation-triangle"></i> 冲突检测</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/expiry"><i class="bi bi-clock"></i> 规则过期</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/health"><i class="bi bi-heart-pulse"></i> 健康检查</a>
+                <a class="btn btn-outline-light btn-sm me-2" href="/logs"><i class="bi bi-journal-text"></i> 日志</a>
+                <a class="btn btn-outline-light btn-sm" href="/logout">退出</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 为规则设置过期时间 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-clock"></i> 设置规则过期时间
+            </div>
+            <div class="card-body">
+                <form method="POST" action="/expiry/set">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row g-3">
+                        <div class="col-md-2">
+                            <label class="form-label">链</label>
+                            <select name="chain" class="form-select form-select-sm">
+                                <option value="INPUT">INPUT</option>
+                                <option value="OUTPUT">OUTPUT</option>
+                                <option value="FORWARD">FORWARD</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">协议</label>
+                            <select name="protocol" class="form-select form-select-sm">
+                                <option value="all">all</option>
+                                <option value="tcp">tcp</option>
+                                <option value="udp">udp</option>
+                                <option value="icmp">icmp</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">源地址</label>
+                            <input type="text" name="src" class="form-control form-control-sm" placeholder="0.0.0.0/0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">目标地址</label>
+                            <input type="text" name="dst" class="form-control form-control-sm" placeholder="0.0.0.0/0">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">端口</label>
+                            <input type="text" name="dport" class="form-control form-control-sm" placeholder="80">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">动作</label>
+                            <select name="target" class="form-select form-select-sm">
+                                <option value="ACCEPT">ACCEPT</option>
+                                <option value="DROP">DROP</option>
+                                <option value="REJECT">REJECT</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">过期时间（分钟）</label>
+                            <input type="number" name="minutes" class="form-control form-control-sm" value="60" min="1" max="43200">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3">
+                        <i class="bi bi-clock"></i> 设置过期
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 已设置过期的规则 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-list-check"></i> 过期规则列表
+                <span class="badge bg-secondary">{{ expiry_list|length }}</span>
+            </div>
+            <div class="card-body">
+                {% if expiry_list %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>链</th>
+                                <th>协议</th>
+                                <th>源地址</th>
+                                <th>目标地址</th>
+                                <th>端口</th>
+                                <th>动作</th>
+                                <th>过期时间</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for e in expiry_list %}
+                            <tr class="{% if e.expired %}table-danger{% endif %}">
+                                <td><span class="badge bg-info">{{ e.chain }}</span></td>
+                                <td>{{ e.protocol }}</td>
+                                <td>{{ e.src }}</td>
+                                <td>{{ e.dst }}</td>
+                                <td>{{ e.dport or '-' }}</td>
+                                <td>
+                                    <span class="badge {% if e.target == 'ACCEPT' %}bg-success{% elif e.target == 'DROP' %}bg-danger{% else %}bg-warning{% endif %}">
+                                        {{ e.target }}
+                                    </span>
+                                </td>
+                                <td>{{ e.expire_at }}</td>
+                                <td>
+                                    {% if e.expired %}
+                                    <span class="badge bg-danger">已过期</span>
+                                    {% else %}
+                                    <span class="badge bg-success">剩余 {{ (e.remaining // 60) }} 分钟</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form method="POST" action="/expiry/cancel" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="fingerprint" value="{{ e.chain }}|{{ e.protocol }}|{{ e.src }}|{{ e.dst }}|{{ e.target }}|{{ e.dport }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-x"></i> 取消
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">暂无设置过期时间的规则</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>说明：</strong>设置过期时间后，规则会在到期后自动删除。每次访问此页面时会清理过期规则。
+        </div>
+
+        <a href="/" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 返回规则管理</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

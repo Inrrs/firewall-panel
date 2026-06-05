@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  firewall-panel:
+    build: .
+    container_name: firewall-panel
+    # 使用 host 网络模式，让容器共享宿主机网络命名空间
+    # 这样容器内的 iptables 才能操作宿主机的防火墙
+    network_mode: host
+    volumes:
+      - ./backups:/app/backups
+      - ./snapshots:/app/snapshots
+      - ./firewall.log:/app/firewall.log
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASS=${ADMIN_PASS:-admin123}
+      - SESSION_TIMEOUT=${SESSION_TIMEOUT:-1800}
+      - MAX_LOGIN_ATTEMPTS=${MAX_LOGIN_ATTEMPTS:-5}
+      - HTTPS_ENABLED=${HTTPS_ENABLED:-}
+      # host 网络模式下绑定地址，127.0.0.1 需反向代理，0.0.0.0 直接暴露
+      - LISTEN_HOST=${LISTEN_HOST:-127.0.0.1}
+      - LISTEN_PORT=${LISTEN_PORT:-5000}
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped

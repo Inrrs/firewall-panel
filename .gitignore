@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# 环境变量
+.env
+.secret_key
+
+# 日志
+*.log
+
+# 备份和快照文件
+backups/
+snapshots/
+
+# 运行时配置（自动生成）
+blacklist.txt
+whitelist.txt
+blocked_countries.json
+scan_detect.json
+ddos_config.json
+rule_expiry.json
+traffic_alert.json
+traffic_snapshot.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db

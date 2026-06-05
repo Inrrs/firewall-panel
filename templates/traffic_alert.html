@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流量告警 - 防火墙面板</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">防火墙面板</a>
+            <div class="navbar-nav ms-auto">
+                <a class="btn btn-outline-light btn-sm me-1" href="/blacklist"><i class="bi bi-shield-lock"></i> 黑白名单</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/connections"><i class="bi bi-activity"></i> 连接</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/traffic"><i class="bi bi-graph-up"></i> 流量</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/geoip"><i class="bi bi-globe2"></i> 地区封锁</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/conflicts"><i class="bi bi-exclamation-triangle"></i> 冲突检测</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/expiry"><i class="bi bi-clock"></i> 规则过期</a>
+                <a class="btn btn-outline-light btn-sm me-1" href="/health"><i class="bi bi-heart-pulse"></i> 健康检查</a>
+                <a class="btn btn-outline-light btn-sm me-2" href="/logs"><i class="bi bi-journal-text"></i> 日志</a>
+                <a class="btn btn-outline-light btn-sm" href="/logout">退出</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 实时告警 -->
+        {% if alerts %}
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-octagon"></i> <strong>流量告警：</strong>
+            <ul class="mb-0 mt-1">
+                {% for alert in alerts %}
+                <li>{{ alert }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- 配置 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-graph-up"></i> 流量异常告警配置
+                {% if config.enabled %}
+                <span class="badge bg-success">已启用</span>
+                {% else %}
+                <span class="badge bg-secondary">已禁用</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <form method="POST" action="/traffic-alert/config">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="enabled" id="enabled"
+                               {% if config.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="enabled">启用流量异常告警</label>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">接收速率阈值 (Mbps)</label>
+                            <input type="number" name="rx_threshold" class="form-control"
+                                   value="{{ config.rx_threshold_mbps }}" min="1" max="10000">
+                            <div class="form-text">超过此速率时记录告警日志</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">发送速率阈值 (Mbps)</label>
+                            <input type="number" name="tx_threshold" class="form-control"
+                                   value="{{ config.tx_threshold_mbps }}" min="1" max="10000">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">检测间隔（秒）</label>
+                            <input type="number" name="interval" class="form-control"
+                                   value="{{ config.check_interval }}" min="10" max="3600">
+                            <div class="form-text">每次访问告警页面时检测</div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> 保存配置
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>说明：</strong>每次访问此页面时，系统会对比上次和当前的流量数据，计算速率。超过阈值时会在日志中记录告警。建议配合日志监控工具使用。
+        </div>
+
+        <a href="/" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 返回规则管理</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
