@@ -13,6 +13,7 @@ env/
 
 # 日志
 *.log
+logs/
 
 # 备份和快照文件
 backups/

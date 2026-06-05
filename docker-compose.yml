@@ -10,7 +10,7 @@ services:
     volumes:
       - ./backups:/app/backups
       - ./snapshots:/app/snapshots
-      - ./firewall.log:/app/firewall.log
+      - ./logs:/app/logs
     environment:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
       - ADMIN_USER=${ADMIN_USER:-admin}
