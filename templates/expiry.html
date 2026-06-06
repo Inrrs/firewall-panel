@@ -17,50 +17,37 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="row g-3">
                 <div class="col-md-2">
-                    <label class="form-label">链</label>
-                    <select name="chain" class="form-select form-select-sm">
-                        <option value="INPUT">INPUT</option>
-                        <option value="OUTPUT">OUTPUT</option>
-                        <option value="FORWARD">FORWARD</option>
+                    <label class="form-label">动作</label>
+                    <select name="target" class="form-select form-select-sm">
+                        <option value="ACCEPT">允许 (ACCEPT)</option>
+                        <option value="DROP">丢弃 (DROP)</option>
+                        <option value="REJECT">拒绝 (REJECT)</option>
                     </select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">协议</label>
                     <select name="protocol" class="form-select form-select-sm">
-                        <option value="all">all</option>
-                        <option value="tcp">tcp</option>
-                        <option value="udp">udp</option>
-                        <option value="icmp">icmp</option>
+                        <option value="tcp">TCP</option>
+                        <option value="udp">UDP</option>
+                        <option value="icmp">ICMP</option>
+                        <option value="all">全部</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label">源地址</label>
-                    <input type="text" name="src" class="form-control form-control-sm" placeholder="0.0.0.0/0">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">目标地址</label>
-                    <input type="text" name="dst" class="form-control form-control-sm" placeholder="0.0.0.0/0">
-                </div>
-                <div class="col-md-1">
+                <div class="col-md-3">
                     <label class="form-label">端口</label>
-                    <input type="text" name="dport" class="form-control form-control-sm" placeholder="80">
+                    <input type="text" name="dport" class="form-control form-control-sm" placeholder="80 / 80,443,8080 / 8000-8100">
+                    <div class="form-text">支持批量，同时覆盖入站+出站</div>
                 </div>
-                <div class="col-md-1">
-                    <label class="form-label">动作</label>
-                    <select name="target" class="form-select form-select-sm">
-                        <option value="ACCEPT">ACCEPT</option>
-                        <option value="DROP">DROP</option>
-                        <option value="REJECT">REJECT</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">过期（分钟）</label>
+                <div class="col-md-3">
+                    <label class="form-label">过期时间（分钟）</label>
                     <input type="number" name="minutes" class="form-control form-control-sm" value="60" min="1" max="43200">
                 </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-clock"></i> 设置过期
+                    </button>
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary mt-3">
-                <i class="bi bi-clock"></i> 设置过期
-            </button>
         </form>
     </div>
 </div>
@@ -76,15 +63,14 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
-                    <tr><th>链</th><th>协议</th><th>源地址</th><th>目标地址</th><th>端口</th><th>动作</th><th>过期时间</th><th>状态</th><th>操作</th></tr>
+                    <tr><th>协议</th><th>源地址</th><th>目标地址</th><th>端口</th><th>动作</th><th>过期时间</th><th>状态</th><th>操作</th></tr>
                 </thead>
                 <tbody>
                     {% for e in expiry_list %}
                     <tr class="{% if e.expired %}table-danger{% endif %}">
-                        <td><span class="chain-badge {{ e.chain|lower }}">{{ e.chain }}</span></td>
                         <td>{{ e.protocol }}</td>
-                        <td><code>{{ e.src }}</code></td>
-                        <td><code>{{ e.dst }}</code></td>
+                        <td><code>{{ e.src or '0.0.0.0/0' }}</code></td>
+                        <td><code>{{ e.dst or '0.0.0.0/0' }}</code></td>
                         <td>{{ e.dport or '-' }}</td>
                         <td><span class="target-badge {{ e.target|lower }}">{{ e.target }}</span></td>
                         <td>{{ e.expire_at }}</td>
@@ -98,7 +84,7 @@
                         <td>
                             <form method="POST" action="/expiry/cancel" style="display:inline;">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="fingerprint" value="{{ e.chain }}|{{ e.protocol }}|{{ e.src }}|{{ e.dst }}|{{ e.target }}|{{ e.dport }}">
+                                <input type="hidden" name="fingerprint" value="{{ e.protocol }}|{{ e.src }}|{{ e.dst }}|{{ e.target }}|{{ e.dport }}">
                                 <button type="submit" class="btn btn-sm btn-outline-secondary">
                                     <i class="bi bi-x"></i> 取消
                                 </button>
@@ -120,6 +106,6 @@
 
 <div class="alert alert-info">
     <i class="bi bi-info-circle"></i>
-    <strong>说明：</strong>设置过期时间后，规则会在到期后自动删除。每次访问此页面时会清理过期规则。
+    <strong>说明：</strong>设置过期时间后，入站和出站的匹配规则都会在到期后自动删除。
 </div>
 {% endblock %}

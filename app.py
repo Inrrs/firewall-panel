@@ -346,6 +346,61 @@ def delete_rule(chain, index):
         return False, "规则删除失败，请查看日志"
 
 
+def _rule_match_content(rule):
+    """规则内容指纹（不含链名和索引），用于跨链匹配"""
+    return f"{rule.get('protocol','')}|{rule.get('src','')}|{rule.get('dst','')}|{rule.get('target','')}|{rule.get('dport','')}"
+
+
+def delete_rule_both_chains(chain, index):
+    """删除规则，同时删除另一条链中的匹配规则"""
+    # 先获取要删除的规则内容
+    try:
+        table = iptc.Table(iptc.Table.FILTER)
+        chain_obj = iptc.Chain(table, chain)
+        rules = list(chain_obj.rules)
+        if not (0 <= index < len(rules)):
+            return False, "规则索引无效"
+        target_rule = {
+            "chain": chain,
+            "protocol": rules[index].protocol if rules[index].protocol else "all",
+            "src": rules[index].src if rules[index].src else "0.0.0.0/0",
+            "dst": rules[index].dst if rules[index].dst else "0.0.0.0/0",
+            "target": rules[index].target.name if rules[index].target else "ACCEPT",
+            "dport": _get_dport(rules[index]),
+        }
+    except Exception as e:
+        logger.error(f"获取规则内容失败: {e}")
+        return False, "删除失败，请查看日志"
+
+    # 删除当前链的规则
+    success, msg = delete_rule(chain, index)
+    if not success:
+        return False, msg
+
+    # 找另一条链并删除匹配规则
+    other_chain = "OUTPUT" if chain == "INPUT" else "INPUT"
+    target_fp = _rule_match_content(target_rule)
+    try:
+        table = iptc.Table(iptc.Table.FILTER)
+        other_chain_obj = iptc.Chain(table, other_chain)
+        for rule in other_chain_obj.rules:
+            other_rule = {
+                "protocol": rule.protocol if rule.protocol else "all",
+                "src": rule.src if rule.src else "0.0.0.0/0",
+                "dst": rule.dst if rule.dst else "0.0.0.0/0",
+                "target": rule.target.name if rule.target else "ACCEPT",
+                "dport": _get_dport(rule),
+            }
+            if _rule_match_content(other_rule) == target_fp:
+                other_chain_obj.delete_rule(rule)
+                log_action("删除匹配规则", f"chain={other_chain}, matched from {chain}")
+                return True, f"已从 {chain} 和 {other_chain} 删除规则"
+    except Exception as e:
+        logger.error(f"删除匹配规则失败: {e}")
+
+    return True, f"已从 {chain} 删除规则（{other_chain} 中未找到匹配项）"
+
+
 BACKUP_MAX_COUNT = 50  # 最多保留备份数量
 
 
@@ -754,7 +809,7 @@ def delete(chain, index):
         flash("无效的链名称", "danger")
         return redirect(url_for("index"))
 
-    success, msg = delete_rule(chain, index)
+    success, msg = delete_rule_both_chains(chain, index)
     flash(msg, "success" if success else "danger")
     return redirect(url_for("index"))
 
@@ -1573,30 +1628,36 @@ def save_expiry(data):
 
 
 def rule_fingerprint_full(rule):
-    """规则完整指纹"""
+    """规则完整指纹（含链名）"""
     return f"{rule['chain']}|{rule['protocol']}|{rule['src']}|{rule['dst']}|{rule['target']}|{rule.get('dport', '')}"
 
 
+def rule_fingerprint_nochain(rule):
+    """规则指纹（不含链名），用于过期匹配双链"""
+    return f"{rule['protocol']}|{rule['src']}|{rule['dst']}|{rule['target']}|{rule.get('dport', '')}"
+
+
 def cleanup_expired_rules():
-    """清理已过期的规则"""
+    """清理已过期的规则（同时清理 INPUT 和 OUTPUT）"""
     expiry = load_expiry()
     now = time.time()
     expired_keys = [k for k, v in expiry.items() if v <= now]
     if not expired_keys:
         return 0
 
-    # 找到并删除过期规则
     rules = get_rules()
     removed = 0
     for rule in rules:
-        fp = rule_fingerprint_full(rule)
+        fp = rule_fingerprint_nochain(rule)
         if fp in expired_keys:
             success, _ = delete_rule(rule["chain"], rule["index"])
             if success:
                 removed += 1
-                log_action("规则自动过期", fp)
-                del expiry[fp]
+                log_action("规则自动过期", f"{rule['chain']}|{fp}")
 
+    # 清理过期条目
+    for key in expired_keys:
+        del expiry[key]
     save_expiry(expiry)
     return removed
 
@@ -1608,43 +1669,60 @@ def expiry_page():
     cleanup_expired_rules()
     expiry = load_expiry()
     now = time.time()
-    # 构建显示列表
     expiry_list = []
     for fp, ts in expiry.items():
         parts = fp.split("|")
         remaining = int(ts - now) if ts > now else 0
         expiry_list.append({
-            "chain": parts[0], "protocol": parts[1],
-            "src": parts[2], "dst": parts[3],
-            "target": parts[4], "dport": parts[5] if len(parts) > 5 else "",
+            "protocol": parts[0],
+            "src": parts[1], "dst": parts[2],
+            "target": parts[3],
+            "dport": parts[4] if len(parts) > 4 else "",
             "expire_at": datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S"),
             "expired": ts <= now,
             "remaining": remaining,
         })
-    rules = get_rules()
-    return render_template("expiry.html", expiry_list=expiry_list, rules=rules)
+    return render_template("expiry.html", expiry_list=expiry_list)
 
 
 @app.route("/expiry/set", methods=["POST"])
 @login_required
 def set_expiry():
-    """为规则设置过期时间"""
-    chain = request.form.get("chain", "INPUT")
-    protocol = request.form.get("protocol", "all")
+    """为规则设置过期时间（同时覆盖入站+出站）"""
+    protocol = request.form.get("protocol", "tcp")
     src = request.form.get("src", "").strip()
     dst = request.form.get("dst", "").strip()
     target = request.form.get("target", "ACCEPT")
-    dport = request.form.get("dport", "").strip()
+    dport_str = request.form.get("dport", "").strip()
     minutes = request.form.get("minutes", 60, type=int)
 
-    minutes = max(1, min(minutes, 43200))  # 1分钟 ~ 30天
+    minutes = max(1, min(minutes, 43200))
 
-    fp = f"{chain}|{protocol}|{src}|{dst}|{target}|{dport}"
+    # 解析批量端口
+    ports = parse_ports(dport_str)
+    if dport_str and ports is None:
+        flash("端口格式无效", "danger")
+        return redirect(url_for("expiry_page"))
+
     expiry = load_expiry()
-    expiry[fp] = time.time() + minutes * 60
-    save_expiry(expiry)
-    log_action("设置规则过期", f"{fp} -> {minutes}分钟后")
-    flash(f"规则将在 {minutes} 分钟后自动过期", "success")
+    expire_at = time.time() + minutes * 60
+
+    if ports:
+        count = 0
+        for port in ports:
+            fp = f"{protocol}|{src}|{dst}|{target}|{port}"
+            expiry[fp] = expire_at
+            count += 1
+        save_expiry(expiry)
+        log_action("设置规则过期", f"{count} 条规则 -> {minutes}分钟后")
+        flash(f"已为 {count} 条规则设置 {minutes} 分钟后过期（入站+出站）", "success")
+    else:
+        fp = f"{protocol}|{src}|{dst}|{target}|{dport_str}"
+        expiry[fp] = expire_at
+        save_expiry(expiry)
+        log_action("设置规则过期", f"{fp} -> {minutes}分钟后")
+        flash(f"规则将在 {minutes} 分钟后自动过期（入站+出站）", "success")
+
     return redirect(url_for("expiry_page"))
 
 
