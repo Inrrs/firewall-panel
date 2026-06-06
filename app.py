@@ -689,7 +689,7 @@ def index():
 @app.route("/add", methods=["POST"])
 @login_required
 def add():
-    chain = "INPUT"  # 默认使用 INPUT 链
+    chains = ["INPUT", "OUTPUT"]  # 同时写入入站和出站
     protocol = request.form.get("protocol", "tcp")
     src = request.form.get("src", "").strip()
     dst = request.form.get("dst", "").strip()
@@ -717,24 +717,32 @@ def add():
             flash(err, "danger")
         return redirect(url_for("index"))
 
-    # 批量添加规则
+    # 批量添加规则（每个端口 × 每条链）
     if ports:
         success_count = 0
         fail_count = 0
         for port in ports:
-            success, _ = add_rule(chain, protocol, src, dst, target, str(port))
-            if success:
-                success_count += 1
-            else:
-                fail_count += 1
+            for chain in chains:
+                success, _ = add_rule(chain, protocol, src, dst, target, str(port))
+                if success:
+                    success_count += 1
+                else:
+                    fail_count += 1
         if success_count > 0:
-            flash(f"成功添加 {success_count} 条规则" + (f"，{fail_count} 条失败" if fail_count else ""), "success")
+            flash(f"成功添加 {success_count} 条规则（入站+出站）" + (f"，{fail_count} 条失败" if fail_count else ""), "success")
         else:
             flash("规则添加失败，请查看日志", "danger")
     else:
-        # 无端口，添加单条规则
-        success, msg = add_rule(chain, protocol, src, dst, target, None)
-        flash(msg, "success" if success else "danger")
+        # 无端口，添加单条规则到两条链
+        success_count = 0
+        for chain in chains:
+            success, _ = add_rule(chain, protocol, src, dst, target, None)
+            if success:
+                success_count += 1
+        if success_count > 0:
+            flash(f"成功添加 {success_count} 条规则（入站+出站）", "success")
+        else:
+            flash("规则添加失败，请查看日志", "danger")
 
     return redirect(url_for("index"))
 
