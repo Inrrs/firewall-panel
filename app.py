@@ -195,7 +195,7 @@ def validate_ip(ip_str):
 
 
 def validate_port(port_str):
-    """验证端口格式"""
+    """验证单个端口格式"""
     if not port_str:
         return True
     try:
@@ -203,6 +203,39 @@ def validate_port(port_str):
         return 1 <= port <= 65535
     except ValueError:
         return False
+
+
+def parse_ports(port_str):
+    """解析端口字符串，支持单端口、逗号分隔、范围。返回端口列表或 None"""
+    if not port_str or not port_str.strip():
+        return None
+    ports = []
+    for part in port_str.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            # 端口范围: 80-90
+            range_parts = part.split("-", 1)
+            try:
+                start = int(range_parts[0].strip())
+                end = int(range_parts[1].strip())
+                if 1 <= start <= 65535 and 1 <= end <= 65535 and start <= end:
+                    ports.extend(range(start, end + 1))
+                else:
+                    return None
+            except ValueError:
+                return None
+        else:
+            try:
+                p = int(part)
+                if 1 <= p <= 65535:
+                    ports.append(p)
+                else:
+                    return None
+            except ValueError:
+                return None
+    return ports if ports else None
 
 
 def validate_chain(chain):
@@ -656,17 +689,15 @@ def index():
 @app.route("/add", methods=["POST"])
 @login_required
 def add():
-    chain = request.form.get("chain", "INPUT")
-    protocol = request.form.get("protocol", "all")
+    chain = "INPUT"  # 默认使用 INPUT 链
+    protocol = request.form.get("protocol", "tcp")
     src = request.form.get("src", "").strip()
     dst = request.form.get("dst", "").strip()
     target = request.form.get("target", "ACCEPT")
-    dport = request.form.get("dport", "").strip()
+    dport_str = request.form.get("dport", "").strip()
 
     # 输入验证
     errors = []
-    if not validate_chain(chain):
-        errors.append("无效的链名称")
     if not validate_protocol(protocol):
         errors.append("无效的协议")
     if not validate_target(target):
@@ -675,16 +706,36 @@ def add():
         errors.append("源地址格式无效")
     if dst and not validate_ip(dst):
         errors.append("目标地址格式无效")
-    if dport and not validate_port(dport):
-        errors.append("端口格式无效 (1-65535)")
+
+    # 解析批量端口
+    ports = parse_ports(dport_str)
+    if dport_str and ports is None:
+        errors.append("端口格式无效，支持: 80 / 80,443,8080 / 8000-8100")
 
     if errors:
         for err in errors:
             flash(err, "danger")
         return redirect(url_for("index"))
 
-    success, msg = add_rule(chain, protocol, src, dst, target, dport or None)
-    flash(msg, "success" if success else "danger")
+    # 批量添加规则
+    if ports:
+        success_count = 0
+        fail_count = 0
+        for port in ports:
+            success, _ = add_rule(chain, protocol, src, dst, target, str(port))
+            if success:
+                success_count += 1
+            else:
+                fail_count += 1
+        if success_count > 0:
+            flash(f"成功添加 {success_count} 条规则" + (f"，{fail_count} 条失败" if fail_count else ""), "success")
+        else:
+            flash("规则添加失败，请查看日志", "danger")
+    else:
+        # 无端口，添加单条规则
+        success, msg = add_rule(chain, protocol, src, dst, target, None)
+        flash(msg, "success" if success else "danger")
+
     return redirect(url_for("index"))
 
 
@@ -1857,5 +1908,5 @@ def internal_error(e):
 if __name__ == "__main__":
     # host 网络模式下绑定 0.0.0.0，通过反向代理限制访问
     host = os.environ.get("LISTEN_HOST", "127.0.0.1")
-    port = int(os.environ.get("LISTEN_PORT", 5000))
+    port = int(os.environ.get("LISTEN_PORT", 8901))
     app.run(host=host, port=port, debug=False)

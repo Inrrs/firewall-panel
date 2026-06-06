@@ -5,18 +5,25 @@
 ## 功能特性
 
 - ✅ 查看/添加/删除 iptables 规则
+- ✅ 简化规则添加：选动作、协议、端口即可，支持批量端口
 - ✅ 按链筛选规则（INPUT/OUTPUT/FORWARD）
 - ✅ 规则搜索
 - ✅ 规则备份与恢复
 - ✅ 规则快照与变更检测
 - ✅ 规则导出/导入（JSON格式）
-- ✅ iptables规则保存/恢复
-- ✅ 清除规则
+- ✅ IP 黑白名单管理
+- ✅ 实时 TCP 连接监控
+- ✅ 网卡流量监控
+- ✅ 地区封锁 (GeoIP)
+- ✅ 端口扫描检测
+- ✅ DDoS 防护
+- ✅ 规则冲突检测
+- ✅ 规则有效期管理
+- ✅ 流量异常告警
+- ✅ 防火墙健康检查
 - ✅ 操作日志审计
 - ✅ 登录认证与会话管理
-- ✅ 会话超时控制
 - ✅ CSRF 防护
-- ✅ 输入验证
 - ✅ 登录失败锁定
 
 ## 快速开始
@@ -25,7 +32,7 @@
 
 ```bash
 # 克隆项目
-git clone <repo-url>
+git clone https://github.com/Inrrs/firewall-panel.git
 cd firewall-panel
 
 # 创建虚拟环境
@@ -58,7 +65,7 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-访问 `http://localhost:5000`，使用配置的账号密码登录。
+访问 `http://localhost:8901`，使用配置的账号密码登录。
 
 > **注意：** Docker 使用 `network_mode: host` 模式，容器共享宿主机网络，才能操作宿主机的 iptables 防火墙。
 
@@ -73,7 +80,7 @@ server {
     ssl_certificate_key /path/to/key.pem;
 
     location / {
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass http://127.0.0.1:8901;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -95,11 +102,11 @@ server {
 | `SECRET_KEY` | Flask session 密钥 | 随机生成 |
 | `ADMIN_USER` | 管理员用户名 | `admin` |
 | `ADMIN_PASS` | 管理员密码 | `admin123` |
+| `LISTEN_PORT` | 监听端口 | `8901` |
+| `LISTEN_HOST` | 监听地址 | `127.0.0.1` |
 | `SESSION_TIMEOUT` | 会话超时（秒） | `1800` |
 | `MAX_LOGIN_ATTEMPTS` | 登录失败锁定次数 | `5` |
 | `HTTPS_ENABLED` | 启用 HTTPS 安全设置 | 空（禁用） |
-| `LISTEN_HOST` | 监听地址 | `127.0.0.1` |
-| `LISTEN_PORT` | 监听端口 | `5000` |
 
 ## 项目结构
 
@@ -112,9 +119,20 @@ firewall-panel/
 ├── Dockerfile          # Docker 构建文件
 ├── docker-compose.yml  # Docker Compose 配置
 ├── templates/
-│   ├── index.html      # 主页面
+│   ├── base.html       # 基础模板（侧边栏导航）
+│   ├── index.html      # 规则管理主页
 │   ├── login.html      # 登录页面
-│   ├── logs.html       # 日志页面
+│   ├── blacklist.html  # IP 黑白名单
+│   ├── connections.html# 连接监控
+│   ├── traffic.html    # 流量监控
+│   ├── geoip.html      # 地区封锁
+│   ├── scan_detect.html# 端口扫描检测
+│   ├── ddos.html       # DDoS 防护
+│   ├── conflicts.html  # 冲突检测
+│   ├── expiry.html     # 规则有效期
+│   ├── traffic_alert.html # 流量告警
+│   ├── health.html     # 健康检查
+│   ├── logs.html       # 操作日志
 │   └── import.html     # 导入页面
 ├── static/
 │   └── style.css       # 样式文件

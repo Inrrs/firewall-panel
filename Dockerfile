@@ -21,6 +21,6 @@ RUN apt-get purge -y gcc libc6-dev libxtables-dev && \
 
 COPY . .
 
-EXPOSE 5000
+EXPOSE 8901
 
 CMD ["python", "app.py"]

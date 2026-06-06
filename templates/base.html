@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}防火墙面板{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="app-layout">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <i class="bi bi-shield-lock-fill"></i>
+                <span>防火墙面板</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <span class="nav-section-title">规则管理</span>
+                    <a href="/" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+                        <i class="bi bi-list-ul"></i> 规则列表
+                    </a>
+                    <a href="/blacklist" class="nav-link {% if request.endpoint == 'blacklist' %}active{% endif %}">
+                        <i class="bi bi-shield-x"></i> 黑白名单
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <span class="nav-section-title">安全防护</span>
+                    <a href="/geoip" class="nav-link {% if request.endpoint == 'geoip' %}active{% endif %}">
+                        <i class="bi bi-globe2"></i> 地区封锁
+                    </a>
+                    <a href="/scan-detect" class="nav-link {% if request.endpoint == 'scan_detect' %}active{% endif %}">
+                        <i class="bi bi-radar"></i> 扫描检测
+                    </a>
+                    <a href="/ddos" class="nav-link {% if request.endpoint == 'ddos' %}active{% endif %}">
+                        <i class="bi bi-lightning"></i> DDoS 防护
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <span class="nav-section-title">监控与工具</span>
+                    <a href="/connections" class="nav-link {% if request.endpoint == 'connections' %}active{% endif %}">
+                        <i class="bi bi-activity"></i> 连接监控
+                    </a>
+                    <a href="/traffic" class="nav-link {% if request.endpoint == 'traffic' %}active{% endif %}">
+                        <i class="bi bi-graph-up"></i> 流量监控
+                    </a>
+                    <a href="/conflicts" class="nav-link {% if request.endpoint == 'conflicts' %}active{% endif %}">
+                        <i class="bi bi-exclamation-triangle"></i> 冲突检测
+                    </a>
+                    <a href="/expiry" class="nav-link {% if request.endpoint == 'expiry_page' %}active{% endif %}">
+                        <i class="bi bi-clock"></i> 规则过期
+                    </a>
+                    <a href="/traffic-alert" class="nav-link {% if request.endpoint == 'traffic_alert' %}active{% endif %}">
+                        <i class="bi bi-bell"></i> 流量告警
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <span class="nav-section-title">系统</span>
+                    <a href="/health" class="nav-link {% if request.endpoint == 'health' %}active{% endif %}">
+                        <i class="bi bi-heart-pulse"></i> 健康检查
+                    </a>
+                    <a href="/logs" class="nav-link {% if request.endpoint == 'logs' %}active{% endif %}">
+                        <i class="bi bi-journal-text"></i> 操作日志
+                    </a>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <i class="bi bi-person-circle"></i>
+                    <span>{{ session.username }}</span>
+                </div>
+                <a href="/logout" class="btn-logout" title="退出登录">
+                    <i class="bi bi-box-arrow-right"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- 主内容 -->
+        <main class="main-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

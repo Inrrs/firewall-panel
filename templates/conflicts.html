@@ -1,89 +1,55 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>规则冲突检测 - 防火墙面板</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">防火墙面板</a>
-            <div class="navbar-nav ms-auto">
-                <a class="btn btn-outline-light btn-sm me-1" href="/blacklist"><i class="bi bi-shield-lock"></i> 黑白名单</a>
-                <a class="btn btn-outline-light btn-sm me-1" href="/connections"><i class="bi bi-activity"></i> 连接</a>
-                <a class="btn btn-outline-light btn-sm me-1" href="/traffic"><i class="bi bi-graph-up"></i> 流量</a>
-                <a class="btn btn-outline-light btn-sm me-1" href="/geoip"><i class="bi bi-globe2"></i> 地区封锁</a>
-                <a class="btn btn-outline-light btn-sm me-1" href="/conflicts"><i class="bi bi-exclamation-triangle"></i> 冲突检测</a>
-                <a class="btn btn-outline-light btn-sm me-1" href="/expiry"><i class="bi bi-clock"></i> 规则过期</a>
-                <a class="btn btn-outline-light btn-sm me-1" href="/health"><i class="bi bi-heart-pulse"></i> 健康检查</a>
-                <a class="btn btn-outline-light btn-sm me-2" href="/logs"><i class="bi bi-journal-text"></i> 日志</a>
-                <a class="btn btn-outline-light btn-sm" href="/logout">退出</a>
-            </div>
-        </div>
-    </nav>
+{% extends "base.html" %}
 
-    <div class="container mt-4">
-        <div class="card mb-4">
-            <div class="card-header">
-                <i class="bi bi-exclamation-triangle"></i> 规则冲突检测
-                <span class="badge {% if conflicts %}bg-danger{% else %}bg-success{% endif %}">
-                    {{ conflicts|length }} 个问题
-                </span>
-            </div>
-            <div class="card-body">
-                <p class="text-muted">检测重复规则和矛盾规则（相同匹配条件但动作不同）。</p>
+{% block title %}冲突检测 - 防火墙面板{% endblock %}
 
-                {% if conflicts %}
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped">
-                        <thead>
-                            <tr>
-                                <th>类型</th>
-                                <th>说明</th>
-                                <th>规则1</th>
-                                <th>规则2</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for c in conflicts %}
-                            <tr class="{% if c.type == 'contradict' %}table-danger{% else %}table-warning{% endif %}">
-                                <td>
-                                    {% if c.type == 'contradict' %}
-                                    <span class="badge bg-danger">矛盾</span>
-                                    {% else %}
-                                    <span class="badge bg-warning text-dark">重复</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ c.message }}</td>
-                                <td>
-                                    <small>{{ c.rule1.chain }} | {{ c.rule1.protocol }} | {{ c.rule1.src }} → {{ c.rule1.dst }}:{{ c.rule1.dport or '-' }} | <strong>{{ c.rule1.target }}</strong></small>
-                                </td>
-                                <td>
-                                    <small>{{ c.rule2.chain }} | {{ c.rule2.protocol }} | {{ c.rule2.src }} → {{ c.rule2.dst }}:{{ c.rule2.dport or '-' }} | <strong>{{ c.rule2.target }}</strong></small>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="alert alert-warning mt-3">
-                    <i class="bi bi-lightbulb"></i> <strong>建议：</strong>矛盾规则中，排在前面的先生效，后面的永远不会生效。请删除多余的规则。
-                </div>
-                {% else %}
-                <div class="text-center py-4">
-                    <i class="bi bi-check-circle text-success" style="font-size:3em;"></i>
-                    <p class="mt-2 text-success">未发现冲突或重复规则</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        <a href="/" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 返回规则管理</a>
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-exclamation-triangle"></i> 冲突检测</h1>
+    <span class="badge {% if conflicts %}bg-danger{% else %}bg-success{% endif %}">
+        {{ conflicts|length }} 个问题
+    </span>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span><i class="bi bi-exclamation-triangle"></i> 检测结果</span>
     </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">检测重复规则和矛盾规则（相同匹配条件但动作不同）。</p>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+        {% if conflicts %}
+        <div class="table-responsive">
+            <table class="table table-sm table-striped">
+                <thead>
+                    <tr><th>类型</th><th>说明</th><th>规则1</th><th>规则2</th></tr>
+                </thead>
+                <tbody>
+                    {% for c in conflicts %}
+                    <tr class="{% if c.type == 'contradict' %}table-danger{% else %}table-warning{% endif %}">
+                        <td>
+                            {% if c.type == 'contradict' %}
+                            <span class="badge bg-danger">矛盾</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">重复</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ c.message }}</td>
+                        <td><small>{{ c.rule1.chain }} | {{ c.rule1.protocol }} | {{ c.rule1.src }} → {{ c.rule1.dst }}:{{ c.rule1.dport or '-' }} | <strong>{{ c.rule1.target }}</strong></small></td>
+                        <td><small>{{ c.rule2.chain }} | {{ c.rule2.protocol }} | {{ c.rule2.src }} → {{ c.rule2.dst }}:{{ c.rule2.dport or '-' }} | <strong>{{ c.rule2.target }}</strong></small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="alert alert-warning mt-3 mb-0">
+            <i class="bi bi-lightbulb"></i> <strong>建议：</strong>矛盾规则中，排在前面的先生效，后面的永远不会生效。请删除多余的规则。
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-check-circle text-success"></i>
+            <p class="text-success">未发现冲突或重复规则</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

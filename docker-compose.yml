@@ -20,7 +20,7 @@ services:
       - HTTPS_ENABLED=${HTTPS_ENABLED:-}
       # host 网络模式下绑定地址，127.0.0.1 需反向代理，0.0.0.0 直接暴露
       - LISTEN_HOST=${LISTEN_HOST:-127.0.0.1}
-      - LISTEN_PORT=${LISTEN_PORT:-5000}
+      - LISTEN_PORT=${LISTEN_PORT:-8901}
     cap_add:
       - NET_ADMIN
     restart: unless-stopped
