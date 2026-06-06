@@ -12,6 +12,9 @@ services:
       - ./backups:/app/backups
       - ./snapshots:/app/snapshots
       - ./logs:/app/logs
+      # 地区封锁功能需要 GeoIP 数据库，从宿主机挂载（可选）
+      # 下载地址: https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+      # - /usr/share/GeoIP:/usr/share/GeoIP:ro
     environment:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
       - ADMIN_USER=${ADMIN_USER:-admin}

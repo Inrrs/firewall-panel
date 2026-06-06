@@ -17,6 +17,7 @@
             <option value="导出">导出</option>
             <option value="封锁">封锁</option>
             <option value="登录">登录</option>
+            <option value="过期">过期</option>
         </select>
         <a href="/logs?lines=50" class="btn btn-sm {% if lines == 50 %}btn-primary{% else %}btn-outline-secondary{% endif %}">50条</a>
         <a href="/logs?lines=100" class="btn btn-sm {% if lines == 100 %}btn-primary{% else %}btn-outline-secondary{% endif %}">100条</a>
@@ -31,9 +32,9 @@
             <table class="table table-hover mb-0" id="logTable">
                 <thead>
                     <tr>
-                        <th style="width:170px;">时间</th>
-                        <th style="width:80px;">用户</th>
-                        <th style="width:100px;">操作</th>
+                        <th style="width:160px;">时间</th>
+                        <th style="width:70px;">用户</th>
+                        <th style="width:90px;">操作</th>
                         <th>详情</th>
                     </tr>
                 </thead>
@@ -43,7 +44,7 @@
                     {% if parts|length == 2 %}
                     {% set timestamp = parts[0] %}
                     {% set rest = parts[1] %}
-                    {# 解析 [user] action: details #}
+                    {# 只显示用户操作日志 [user] action: details，跳过系统日志 #}
                     {% if rest.startswith('[') and ']' in rest %}
                         {% set user_end = rest.index(']') %}
                         {% set user = rest[1:user_end] %}
@@ -55,31 +56,25 @@
                             {% set action = action_part %}
                             {% set details = '' %}
                         {% endif %}
-                    {% else %}
-                        {% set user = 'system' %}
-                        {% set action = rest %}
-                        {% set details = '' %}
-                    {% endif %}
 
-                    {% set action_class = '' %}
-                    {% if '添加' in action %}{% set action_class = 'text-success' %}
-                    {% elif '删除' in action %}{% set action_class = 'text-danger' %}
-                    {% elif '清除' in action %}{% set action_class = 'text-danger' %}
-                    {% elif '备份' in action %}{% set action_class = 'text-info' %}
-                    {% elif '恢复' in action %}{% set action_class = 'text-primary' %}
-                    {% elif '导入' in action %}{% set action_class = 'text-primary' %}
-                    {% elif '导出' in action %}{% set action_class = 'text-primary' %}
-                    {% elif '封锁' in action or '解除' in action %}{% set action_class = 'text-warning' %}
-                    {% elif '登录' in action %}{% set action_class = 'text-info' %}
-                    {% elif '过期' in action %}{% set action_class = 'text-muted' %}
-                    {% endif %}
+                        {% set action_class = '' %}
+                        {% if '添加' in action %}{% set action_class = 'text-success' %}
+                        {% elif '删除' in action or '匹配' in action %}{% set action_class = 'text-danger' %}
+                        {% elif '清除' in action %}{% set action_class = 'text-danger' %}
+                        {% elif '备份' in action or '快照' in action %}{% set action_class = 'text-info' %}
+                        {% elif '恢复' in action or '导入' in action or '导出' in action %}{% set action_class = 'text-primary' %}
+                        {% elif '封锁' in action or '解除' in action %}{% set action_class = 'text-warning' %}
+                        {% elif '登录' in action %}{% set action_class = 'text-info' %}
+                        {% elif '过期' in action %}{% set action_class = 'text-muted' %}
+                        {% endif %}
 
-                    <tr class="log-row" data-action="{{ action }}">
-                        <td class="text-muted small">{{ timestamp }}</td>
-                        <td><span class="badge bg-secondary">{{ user }}</span></td>
-                        <td><span class="{{ action_class }} fw-semibold">{{ action }}</span></td>
-                        <td class="small text-muted">{{ details }}</td>
-                    </tr>
+                        <tr class="log-row" data-action="{{ action }}">
+                            <td class="text-muted small" style="white-space:nowrap;">{{ timestamp }}</td>
+                            <td><span class="badge bg-secondary">{{ user }}</span></td>
+                            <td><span class="{{ action_class }} fw-semibold small">{{ action }}</span></td>
+                            <td class="small text-muted" style="word-break:break-all; max-width:0;" title="{{ details }}">{{ details }}</td>
+                        </tr>
+                    {% endif %}
                     {% endif %}
                     {% endfor %}
                 </tbody>
