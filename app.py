@@ -1290,19 +1290,31 @@ def geoip():
 @app.route("/geoip/block", methods=["POST"])
 @login_required
 def geoip_block():
-    """封锁指定国家"""
-    code = request.form.get("code", "").upper().strip()
-    if code not in COUNTRY_CODES:
-        flash("无效的国家代码", "danger")
+    """封锁指定国家（支持多选）"""
+    codes = request.form.getlist("codes")
+    if not codes:
+        flash("请选择要封锁的国家/地区", "warning")
         return redirect(url_for("geoip"))
+
     blocked = load_blocked_countries()
-    if code not in blocked:
-        blocked.append(code)
-        save_blocked_countries(blocked)
-        log_action("封锁国家", f"{code} ({COUNTRY_CODES[code]})")
-        flash(f"已封锁 {COUNTRY_CODES[code]} ({code})", "success")
-    else:
-        flash(f"{COUNTRY_CODES[code]} 已在封锁列表中", "warning")
+    added = 0
+    skipped = 0
+    for code in codes:
+        code = code.upper().strip()
+        if code not in COUNTRY_CODES:
+            continue
+        if code not in blocked:
+            blocked.append(code)
+            added += 1
+            log_action("封锁国家", f"{code} ({COUNTRY_CODES[code]})")
+        else:
+            skipped += 1
+
+    save_blocked_countries(blocked)
+    if added > 0:
+        flash(f"已封锁 {added} 个国家/地区" + (f"，{skipped} 个已在列表中" if skipped else ""), "success")
+    elif skipped > 0:
+        flash(f"所选国家/地区均已封锁", "warning")
     return redirect(url_for("geoip"))
 
 

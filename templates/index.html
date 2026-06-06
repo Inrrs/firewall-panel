@@ -248,6 +248,9 @@
         <span><i class="bi bi-list-ul"></i> 当前规则</span>
         <span class="badge bg-secondary">{{ rules|length }} 条</span>
     </div>
+    <div class="px-3 pt-2 pb-0">
+        <small class="text-muted"><i class="bi bi-info-circle"></i> 防火墙从上往下匹配规则，新添加的规则排在最前面。如需"先禁止全部再放行特定端口"，先加禁止规则，再加放行规则即可。</small>
+    </div>
     <div class="card-body p-0">
         {% if rules %}
         <div class="table-responsive">

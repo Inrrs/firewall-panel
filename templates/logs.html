@@ -6,6 +6,18 @@
 <div class="page-header">
     <h1 class="page-title"><i class="bi bi-journal-text"></i> 操作日志</h1>
     <div class="toolbar">
+        <select id="logFilter" class="form-select form-select-sm" style="width:auto;" onchange="filterLogs()">
+            <option value="">全部类型</option>
+            <option value="添加">添加规则</option>
+            <option value="删除">删除规则</option>
+            <option value="清除">清除规则</option>
+            <option value="备份">备份</option>
+            <option value="恢复">恢复</option>
+            <option value="导入">导入</option>
+            <option value="导出">导出</option>
+            <option value="封锁">封锁</option>
+            <option value="登录">登录</option>
+        </select>
         <a href="/logs?lines=50" class="btn btn-sm {% if lines == 50 %}btn-primary{% else %}btn-outline-secondary{% endif %}">50条</a>
         <a href="/logs?lines=100" class="btn btn-sm {% if lines == 100 %}btn-primary{% else %}btn-outline-secondary{% endif %}">100条</a>
         <a href="/logs?lines=200" class="btn btn-sm {% if lines == 200 %}btn-primary{% else %}btn-outline-secondary{% endif %}">200条</a>
@@ -15,7 +27,64 @@
 <div class="card">
     <div class="card-body p-0">
         {% if log_lines %}
-        <pre class="log-output">{% for line in log_lines %}{{ line }}{% endfor %}</pre>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="logTable">
+                <thead>
+                    <tr>
+                        <th style="width:170px;">时间</th>
+                        <th style="width:80px;">用户</th>
+                        <th style="width:100px;">操作</th>
+                        <th>详情</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in log_lines %}
+                    {% set parts = line.strip().split(' - ', 1) %}
+                    {% if parts|length == 2 %}
+                    {% set timestamp = parts[0] %}
+                    {% set rest = parts[1] %}
+                    {# 解析 [user] action: details #}
+                    {% if rest.startswith('[') and ']' in rest %}
+                        {% set user_end = rest.index(']') %}
+                        {% set user = rest[1:user_end] %}
+                        {% set action_part = rest[user_end+2:] %}
+                        {% if ': ' in action_part %}
+                            {% set action = action_part.split(': ', 1)[0] %}
+                            {% set details = action_part.split(': ', 1)[1] %}
+                        {% else %}
+                            {% set action = action_part %}
+                            {% set details = '' %}
+                        {% endif %}
+                    {% else %}
+                        {% set user = 'system' %}
+                        {% set action = rest %}
+                        {% set details = '' %}
+                    {% endif %}
+
+                    {% set action_class = '' %}
+                    {% if '添加' in action %}{% set action_class = 'text-success' %}
+                    {% elif '删除' in action %}{% set action_class = 'text-danger' %}
+                    {% elif '清除' in action %}{% set action_class = 'text-danger' %}
+                    {% elif '备份' in action %}{% set action_class = 'text-info' %}
+                    {% elif '恢复' in action %}{% set action_class = 'text-primary' %}
+                    {% elif '导入' in action %}{% set action_class = 'text-primary' %}
+                    {% elif '导出' in action %}{% set action_class = 'text-primary' %}
+                    {% elif '封锁' in action or '解除' in action %}{% set action_class = 'text-warning' %}
+                    {% elif '登录' in action %}{% set action_class = 'text-info' %}
+                    {% elif '过期' in action %}{% set action_class = 'text-muted' %}
+                    {% endif %}
+
+                    <tr class="log-row" data-action="{{ action }}">
+                        <td class="text-muted small">{{ timestamp }}</td>
+                        <td><span class="badge bg-secondary">{{ user }}</span></td>
+                        <td><span class="{{ action_class }} fw-semibold">{{ action }}</span></td>
+                        <td class="small text-muted">{{ details }}</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
         <div class="empty-state">
             <i class="bi bi-journal-text"></i>
@@ -28,7 +97,15 @@
 
 {% block scripts %}
 <script>
-    const logOutput = document.querySelector('.log-output');
-    if (logOutput) logOutput.scrollTop = logOutput.scrollHeight;
+    function filterLogs() {
+        const keyword = document.getElementById('logFilter').value;
+        document.querySelectorAll('.log-row').forEach(row => {
+            if (!keyword || row.dataset.action.includes(keyword)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
 </script>
 {% endblock %}
