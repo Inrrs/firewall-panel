@@ -2,6 +2,7 @@ version: "3.8"
 
 services:
   firewall-panel:
+    image: cinrrs/firewall-panel:latest
     build: .
     container_name: firewall-panel
     # 使用 host 网络模式，让容器共享宿主机网络命名空间
