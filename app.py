@@ -94,9 +94,6 @@ SNAPSHOT_FILE = os.path.join(SNAPSHOT_DIR, "current_snapshot.json")
 BLACKLIST_FILE = os.path.join(BASE_DIR, "blacklist.txt")
 WHITELIST_FILE = os.path.join(BASE_DIR, "whitelist.txt")
 
-# GeoIP 数据库路径
-GEOIP_DB = os.environ.get("GEOIP_DB", "/usr/share/GeoIP/GeoLite2-Country.mmdb")
-
 # GeoIP 封锁国家配置文件
 GEOIP_BLOCK_FILE = os.path.join(BASE_DIR, "blocked_countries.json")
 
@@ -1253,28 +1250,32 @@ COUNTRY_CODES = {
 }
 
 
+import urllib.request
+
+_geoip_cache = {}  # {ip: (code, timestamp)}
+_GEOIP_CACHE_TTL = 3600  # 缓存 1 小时
+
+
 def lookup_country(ip):
-    """查询 IP 所属国家（使用 geoiplookup 命令行工具）"""
-    try:
-        result = subprocess.run(
-            ["geoiplookup", ip],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0 and ":" in result.stdout:
-            # 输出格式: GeoIP Country Edition: US, United States
-            code = result.stdout.split(":")[1].strip().split(",")[0].strip()
+    """查询 IP 所属国家（使用 ip-api.com 在线 API）"""
+    now = time.time()
+    # 检查缓存
+    if ip in _geoip_cache:
+        code, ts = _geoip_cache[ip]
+        if now - ts < _GEOIP_CACHE_TTL:
             return code
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-    # 回退：尝试 Python geoip2 库
+
     try:
-        import geoip2.database
-        reader = geoip2.database.Reader(GEOIP_DB)
-        response = reader.country(ip)
-        reader.close()
-        return response.country.iso_code
-    except Exception:
-        pass
+        url = f"http://ip-api.com/json/{ip}?fields=countryCode"
+        req = urllib.request.Request(url, headers={"User-Agent": "firewall-panel/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+            code = data.get("countryCode")
+            if code:
+                _geoip_cache[ip] = (code, now)
+            return code
+    except Exception as e:
+        logger.error(f"GeoIP 查询失败 ({ip}): {e}")
     return None
 
 

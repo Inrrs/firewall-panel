@@ -80,9 +80,8 @@
 
 <div class="alert alert-info">
     <i class="bi bi-info-circle"></i>
-    <strong>说明：</strong>地区封锁功能需要系统安装 GeoIP 数据库。
-    请确保 <code>/usr/share/GeoIP/GeoLite2-Country.mmdb</code> 文件存在，
-    或安装 <code>geoiplookup</code> 命令行工具。
+    <strong>说明：</strong>IP 归属地查询使用 ip-api.com 在线服务，查询结果会缓存 1 小时。
+    封锁功能通过 iptables 规则实现，需要在服务器上手动安装 GeoIP 数据库或 ipset。
 </div>
 {% endblock %}
 
